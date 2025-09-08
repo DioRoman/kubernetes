@@ -1,0 +1,99 @@
+---
+- name: Install and configure MicroK8s on Ubuntu 24.04
+  hosts: MicroK8S-servers
+  become: true
+  tasks:
+    - name: Ensure snapd is installed
+      apt:
+        name: snapd
+        state: present
+        update_cache: true
+
+    - name: Install MicroK8s (latest stable) classic channel
+      community.general.snap:
+        name: microk8s
+        classic: true
+        state: present
+        channel: stable
+
+    - name: Add user to microk8s group
+      user:
+        name: "{{ ansible_user }}"
+        groups: microk8s
+        append: yes
+
+    - name: Start MicroK8s service
+      command: microk8s start
+      environment:
+        PATH: "/snap/bin:{{ ansible_env.PATH }}"
+      become: true
+
+    - name: Wait until MicroK8s is ready
+      command: microk8s status --wait-ready
+      environment:
+        PATH: "/snap/bin:{{ ansible_env.PATH }}"
+      become: true
+
+    - name: Enable MicroK8s dashboard addon
+      command: microk8s enable dashboard
+      environment:
+        PATH: "/snap/bin:{{ ansible_env.PATH }}"
+      become: true
+
+    - name: Generate certificate for external dashboard access
+      shell: |
+        openssl genrsa -out /var/snap/microk8s/current/certs/dashboard.key 2048
+        cat > /tmp/dashboard.cnf <<EOF
+        [req]
+        req_extensions = v3_req
+        distinguished_name = req_distinguished_name
+        prompt = no
+
+        [req_distinguished_name]
+        CN = {{ ansible_default_ipv4.address }}
+
+        [v3_req]
+        keyUsage = keyEncipherment, dataEncipherment
+        extendedKeyUsage = serverAuth
+        subjectAltName = @alt_names
+
+        [alt_names]
+        IP.1 = {{ ansible_default_ipv4.address }}
+        EOF
+
+        openssl req -new -key /var/snap/microk8s/current/certs/dashboard.key -out /tmp/dashboard.csr -config /tmp/dashboard.cnf
+        openssl x509 -req -in /tmp/dashboard.csr -signkey /var/snap/microk8s/current/certs/dashboard.key -out /var/snap/microk8s/current/certs/dashboard.crt -days 365 -extensions v3_req -extfile /tmp/dashboard.cnf
+      args:
+        executable: /bin/bash
+      become: true
+
+    - name: Restart MicroK8s to apply certificate
+      command: microk8s stop && microk8s start
+      environment:
+        PATH: "/snap/bin:{{ ansible_env.PATH }}"
+      become: true
+
+    - name: Wait until MicroK8s is ready after restart
+      command: microk8s status --wait-ready
+      environment:
+        PATH: "/snap/bin:{{ ansible_env.PATH }}"
+      become: true
+
+    - name: Ensure .kube directory exists in user home
+      file:
+        path: "/home/{{ ansible_user }}/.kube"
+        state: directory
+        mode: '0700'
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+      become: false
+
+    - name: Copy kubeconfig file to user home for kubectl access
+      copy:
+        src: /var/snap/microk8s/current/credentials/client.config
+        dest: "/home/{{ ansible_user }}/.kube/config"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0600'
+        remote_src: true
+      become: false
