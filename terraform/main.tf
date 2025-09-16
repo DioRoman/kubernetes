@@ -29,6 +29,12 @@ module "yandex-vpc" {
           description = "SSH access"
           cidr_blocks = ["0.0.0.0/0"]
         },
+        {
+          protocol    = "TCP"
+          port        = 10443
+          description = "SSH access"
+          cidr_blocks = ["0.0.0.0/0"]
+        }
       ],
     egress_rules = [
         {

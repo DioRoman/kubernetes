@@ -40,44 +40,32 @@
         PATH: "/snap/bin:{{ ansible_env.PATH }}"
       become: true
 
-    - name: Generate certificate for external dashboard access
+    - name: Set external_ip from inventory (ansible_host)
+      set_fact:
+        external_ip: "{{ ansible_host | default(inventory_hostname) }}"
+
+    - name: Generate dashboard access token using kubectl create token
+      command: microk8s kubectl -n kube-system create token default
+      register: dashboard_token
+      environment:
+        PATH: "/snap/bin:{{ ansible_env.PATH }}"
+      become: true
+
+    - name: Output dashboard access info with external IP from inventory
+      debug:
+        msg:
+          - "Dashboard is running at https://{{ external_ip }}:10443"
+          - "Use the following token to login:"
+          - "{{ dashboard_token.stdout }}"
+
+    - name: Start port forwarding for external dashboard access
       shell: |
-        openssl genrsa -out /var/snap/microk8s/current/certs/dashboard.key 2048
-        cat > /tmp/dashboard.cnf <<EOF
-        [req]
-        req_extensions = v3_req
-        distinguished_name = req_distinguished_name
-        prompt = no
-
-        [req_distinguished_name]
-        CN = {{ ansible_default_ipv4.address }}
-
-        [v3_req]
-        keyUsage = keyEncipherment, dataEncipherment
-        extendedKeyUsage = serverAuth
-        subjectAltName = @alt_names
-
-        [alt_names]
-        IP.1 = {{ ansible_default_ipv4.address }}
-        EOF
-
-        openssl req -new -key /var/snap/microk8s/current/certs/dashboard.key -out /tmp/dashboard.csr -config /tmp/dashboard.cnf
-        openssl x509 -req -in /tmp/dashboard.csr -signkey /var/snap/microk8s/current/certs/dashboard.key -out /var/snap/microk8s/current/certs/dashboard.crt -days 365 -extensions v3_req -extfile /tmp/dashboard.cnf
+        nohup microk8s kubectl port-forward -n kube-system service/kubernetes-dashboard 10443:443 --address 0.0.0.0 > /tmp/k8s-dashboard-port-forward.log 2>&1 &
       args:
         executable: /bin/bash
-      become: true
-
-    - name: Restart MicroK8s to apply certificate
-      command: microk8s stop && microk8s start
-      environment:
-        PATH: "/snap/bin:{{ ansible_env.PATH }}"
-      become: true
-
-    - name: Wait until MicroK8s is ready after restart
-      command: microk8s status --wait-ready
-      environment:
-        PATH: "/snap/bin:{{ ansible_env.PATH }}"
-      become: true
+      async: 10
+      poll: 0
+      become: false
 
     - name: Ensure .kube directory exists in user home
       file:
