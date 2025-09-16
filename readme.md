@@ -1,42 +1,18 @@
-cd /mnt/c/Users/rlyst/Netology/kubernetes/terraform
-terraform init
-terraform apply -auto-approve
-terraform destroy -auto-approve
+1. Запускаем Terraform код для создания VPC, подсетей, групп безопасности и виртуальных машин (VM) в Yandex.Cloud с параметрами для Kubernetes-узлов.
 
-cd /mnt/c/Users/rlyst/Netology/kubernetes/ansible
-ansible-playbook -i inventories/hosts.yml install-MicroK8S.yml
-ansible-playbook -i inventories/hosts.yml install-kubectl.yml
+2. Запускаем Ansible playbook, который автоматически устанавливает и настраивает MicroK8s на Ubuntu 24.04, включая установку snapd, MicroK8s, настройку пользователя, запуск сервиса и включение dashboard с внешним порт-форвардингом.
 
-microk8s enable dashboard
+3. Задание 1:
+   - Создаём Pod с именем `hello-world` и образом `gcr.io/kubernetes-e2e-test-images/echoserver:2.2`.
+   - Полный набор команд:
+     - Создание манифеста hello-world-pod.yaml.
+     - Примененяем его через `microk8s kubectl apply`.
+     - Запускаем `kubectl port-forward` для доступа к Pod на локальном порту.
+     - Проверяем работу через `curl http://localhost:8080` и dashboard.
 
-# Создать Pod
-microk8s kubectl apply -f netology-web-pod.yaml
+4. Задание 2:
+   - Создаём Pod с именем `netology-web` с манифестом netology-web-pod.yaml.
+   - Создаём Service `netology-svc` типа ClusterIP для маршрутизации трафика к Pod с помощью селектора по лейблу `app: netology-web` на основании манифеста netology-svc.yaml.
+   - Обеспечиваем команду для порт-форвардинга службы и проверяем подключения через `curl` и dashboard.
 
-# Создать Service
-microk8s kubectl apply -f netology-svc.yaml
-
-# Проверить, что Pod работает
-microk8s kubectl get pods netology-web --watch
-# Остановить watch при статусе Running (Ctrl+C)
-
-# Запустить порт-форвардинг для Service
-microk8s kubectl port-forward service/netology-svc 8080:80
-# Оставить терминал открытым
-
-# В другом терминале выполнить curl для проверки
-curl http://localhost:8080# Создать Pod
-microk8s kubectl apply -f netology-web-pod.yaml
-
-# Создать Service
-microk8s kubectl apply -f netology-svc.yaml
-
-# Проверить, что Pod работает
-microk8s kubectl get pods netology-web --watch
-# Остановить watch при статусе Running (Ctrl+C)
-
-# Запустить порт-форвардинг для Service
-microk8s kubectl port-forward service/netology-svc 8080:80
-# Оставить терминал открытым
-
-# В другом терминале выполнить curl для проверки
-curl http://localhost:8080
+Таким образом, был пройден полный цикл от создания и публикации Pod до создания сервиса, подключённого к Pod, с настройкой локального доступа через порт-форвардинг в MicroK8s — один из легковесных Kubernetes дистрибутивов для локальной и тестовой работы.
