@@ -89,6 +89,8 @@ curl http://localhost:8080
 
 <img width="801" height="220" alt="Снимок экрана 2025-09-16 202324" src="https://github.com/user-attachments/assets/46febe8d-77f9-4312-8368-8cad324b524e" />
 
+<img width="552" height="638" alt="Снимок экрана 2025-09-16 202250" src="https://github.com/user-attachments/assets/1bedb152-9b8a-41f4-af55-785245472c1d" />
+
 <img width="1795" height="879" alt="Снимок экрана 2025-09-16 202158" src="https://github.com/user-attachments/assets/54f81231-e1f7-4dc5-8f42-ac86430af996" />
 
 <img width="1790" height="944" alt="Снимок экрана 2025-09-16 202225" src="https://github.com/user-attachments/assets/5114fb27-33a7-4b32-a11c-db65c1b51e3b" />
@@ -153,6 +155,8 @@ microk8s kubectl port-forward service/netology-svc 8080:80
 ```
 curl http://localhost:8080
 ```
+
+<img width="531" height="628" alt="Снимок экрана 2025-09-16 202921" src="https://github.com/user-attachments/assets/3e725b91-258b-4998-a274-f4c51449aa54" />
 
 <img width="1785" height="973" alt="Снимок экрана 2025-09-16 202937" src="https://github.com/user-attachments/assets/359c7ac5-1d12-42c2-9f6f-3a1fe1b2b00d" />
 
