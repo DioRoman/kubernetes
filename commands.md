@@ -46,3 +46,5 @@ microk8s.kubectl delete pod multitool-nginx-7cc954d566-v4skf
 microk8s.kubectl scale deployment/nginx-multitool --replicas=2
 
 microk8s.kubectl apply -f deployment.yaml
+
+microk8s kubectl exec -it multitool-test -- /bin/sh
