@@ -32,7 +32,7 @@ module "yandex-vpc" {
         {
           protocol    = "TCP"
           port        = 10443
-          description = "SSH access"
+          description = "MicroK8s console"
           cidr_blocks = ["0.0.0.0/0"]
         }
       ],
