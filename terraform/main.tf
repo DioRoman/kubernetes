@@ -34,6 +34,24 @@ module "yandex-vpc" {
           port        = 10443
           description = "MicroK8s console"
           cidr_blocks = ["0.0.0.0/0"]
+        },
+        {
+          protocol    = "TCP"
+          port        = 30080
+          description = "MicroK8s service"
+          cidr_blocks = ["0.0.0.0/0"]
+        },
+        {
+          protocol    = "TCP"
+          port        = 30880
+          description = "MicroK8s service"
+          cidr_blocks = ["0.0.0.0/0"]
+        },
+        {
+          protocol    = "TCP"
+          port        = 8080
+          description = "MicroK8s service"
+          cidr_blocks = ["0.0.0.0/0"]
         }
       ],
     egress_rules = [
