@@ -4,6 +4,8 @@
 
 https://github.com/DioRoman/kubernetes/blob/main/1.3/deployment.yaml
 
+<img width="2492" height="964" alt="Снимок экрана 2025-10-04 211602" src="https://github.com/user-attachments/assets/0b558400-f944-4a80-b404-2ece22da027c" />
+
 ## Создан Service типа ClusterIP
 
 https://github.com/DioRoman/kubernetes/blob/main/1.4/service-clusterip.yaml
