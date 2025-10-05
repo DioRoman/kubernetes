@@ -1,60 +1,51 @@
-Этот набор команд используется для работы с Terraform, Ansible и MicroK8s (локальной Kubernetes-средой).
-Вот краткое описание команд:
+Вот единообразный и структурированный список команд с кратким описанием для Terraform, Ansible и MicroK8s (Kubernetes):
 
-`cd /mnt/c/Users/rlyst/Netology/kubernetes/terraform`
+***
 
 ### Terraform
-- `terraform init` — инициализация рабочего каталога Terraform (загрузка провайдеров, настройка).
-- `terraform apply -auto-approve` — применение конфигураций Terraform без запроса подтверждения (создание инфраструктуры).
-- `terraform destroy -auto-approve` — удаление всей инфраструктуры, созданной через Terraform, без подтверждения.
 
-`cd /mnt/c/Users/rlyst/Netology/kubernetes/ansible`
+- `cd /mnt/c/Users/rlyst/Netology/kubernetes/terraform` — переход в каталог с конфигурациями Terraform.
+- `terraform init` — инициализация рабочего каталога Terraform, загрузка необходимых провайдеров.
+- `terraform apply -auto-approve` — применение конфигураций Terraform без запроса подтверждения, создание инфраструктуры.
+- `terraform destroy -auto-approve` — удаление созданной инфраструктуры автоматически, без подтверждения.
+
+***
 
 ### Ansible
-- `ansible-playbook -i /mnt/c/Users/rlyst/Netology/kubernetes/ansible/inventories/hosts.yml /mnt/c/Users/rlyst/Netology/kubernetes/ansible/install-MicroK8S.yml` — запуск Ansible-плейбука для установки MicroK8s на хостах из файла инвентаризации.
-- `ansible-playbook -i inventories/hosts.yml install-kubectl.yml` — запуск плейбука для установки kubectl на целевых машинах.
 
-### MicroK8s и Kubernetes
-- `microk8s enable dashboard` — включение Kubernetes Dashboard.
-- `microk8s kubectl apply -f netology-web-pod.yaml` — создание Pod из YAML-манифеста.
-- `microk8s kubectl apply -f netology-svc.yaml` — создание Service для Pod.
-- `microk8s kubectl get pods netology-web --watch` — наблюдение за состоянием Pod до статуса Running (Ctrl+C для остановки).
-- `microk8s kubectl port-forward service/netology-svc 8080:80` — проброс локального порта 8080 к порту 80 сервиса Kubernetes для локального доступа.
-- `curl http://localhost:8080` — проверка доступности приложения через локальный порт.
+- `cd /mnt/c/Users/rlyst/Netology/kubernetes/ansible` — переход в каталог с Ansible-плейбуками.
+- `ansible-playbook -i inventories/hosts.yml install-MicroK8S.yml` — запуск плейбука для установки MicroK8s на указанных хостах.
+- `ansible-playbook -i inventories/hosts.yml install-kubectl.yml` — запуск плейбука для установки kubectl на указанных хостах.
 
-### Управление Pod и Deployment
-- `microk8s.kubectl delete pod multitool-nginx-7cc954d566-v4skf` — удаление конкретного Pod.
-- `microk8s.kubectl scale deployment/nginx-multitool --replicas=2` — изменение количества реплик у deployment.
-- `microk8s.kubectl apply -f deployment.yaml` — создание или обновление Deployment по YAML-манифесту.
-- `microk8s.kubectl apply -f service-nodeport.yaml` — создание или обновление service по YAML-манифесту.
-- `microk8s.kubectl apply -f service-clusterip.yaml` — создание или обновление service по YAML-манифесту.
-- `microk8s kubectl exec -it multitool-test -- /bin/sh` — запуск интерактивной командной оболочки внутри контейнера Pod multitool-test.
-- `microk8s.kubectl get pods` - проверка состояния pods
+***
 
-kubectl run test-pod --image=wbitt/network-multitool --rm -it -- sh
+### MicroK8s и kubectl
 
-curl nginx-multitool-service:80
-curl nginx-multitool-service:8080
+- `microk8s enable dashboard` — включение Kubernetes Dashboard для визуального управления кластером.
+- `microk8s kubectl apply -f <файл.yaml>` — применение конфигураций из YAML-манифеста (создание/обновление объектов Kubernetes).
+  - Примеры файлов: `netology-web-pod.yaml`, `netology-svc.yaml`, `deployment.yaml`, `service-nodeport.yaml`, `service-clusterip.yaml`, `deployment-frontend.yaml`, `deployment-backend.yaml`, `service-frontend.yaml`, `service-backend.yaml`, `ingress.yaml`.
+- `microk8s kubectl get pods` — просмотр списка Pod'ов и их состояния.
+- `microk8s kubectl get pods <имя-pod> --watch` — мониторинг состояния конкретного Pod до статуса Running (Ctrl+C для остановки).
+- `microk8s kubectl delete pod <pod-name>` — удаление указанного Pod.
+- `microk8s kubectl scale deployment/<deployment-name> --replicas=<число>` — изменение количества реплик Deployment.
+- `microk8s kubectl exec -it <pod-name> -- /bin/sh` — запуск интерактивной оболочки внутри контейнера Pod.
+- `microk8s kubectl port-forward service/<service-name> <локальный-порт>:<порт-сервиса>` — проброс локального порта к сервису Kubernetes.
 
-curl frontend-service:80
+***
 
-microk8s kubectl apply -f deployment-frontend.yaml
-microk8s kubectl apply -f deployment-backend.yaml
-microk8s kubectl apply -f service-frontend.yaml
-microk8s kubectl apply -f service-backend.yaml
+### Тестирование и отладка
 
-microk8s kubectl apply -f ingress.yaml
+- `kubectl run test-pod --image=wbitt/network-multitool --rm -it -- sh` — запуск временного Pod с сетьевым инструментарием для тестирования.
+- Внутри тестового Pod или на локальной машине использовать команды:
+  - `curl <service-name>:<порт>` — проверка доступности сервисов внутри кластера.
+  - Примеры: `curl nginx-multitool-service:80`, `curl nginx-multitool-service:8080`, `curl frontend-service:80`.
+- `curl http://localhost:8080` — проверка локального доступа к проброшенному порту.
+- `curl http://62.84.116.85/` и `curl http://62.84.116.85/api` — запросы к наружному IP для проверки работы Ingress.
 
-microk8s kubectl get pods -n ingress
+***
 
-microk8s kubectl get ingress
+### Ingress (входящий трафик)
 
-microk8s enable ingress
-
-microk8s kubectl get ingress
-
-curl http://62.84.116.85/
-
-curl http://62.84.116.85/api
-
-curl 
+- `microk8s enable ingress` — включение компонента Ingress.
+- `microk8s kubectl get ingress` — просмотр настроек и статуса Ingress.
+- `microk8s kubectl get pods -n ingress` — просмотр Pod'ов, связанных с Ingress контроллером.
