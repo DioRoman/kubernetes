@@ -37,3 +37,24 @@ curl nginx-multitool-service:80
 curl nginx-multitool-service:8080
 
 curl frontend-service:80
+
+microk8s kubectl apply -f deployment-frontend.yaml
+microk8s kubectl apply -f deployment-backend.yaml
+microk8s kubectl apply -f service-frontend.yaml
+microk8s kubectl apply -f service-backend.yaml
+
+microk8s kubectl apply -f ingress.yaml
+
+microk8s kubectl get pods -n ingress
+
+microk8s kubectl get ingress
+
+microk8s enable ingress
+
+microk8s kubectl get ingress
+
+curl http://62.84.116.85/
+
+curl http://62.84.116.85/api
+
+curl 
