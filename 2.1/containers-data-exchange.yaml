@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-exchange
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: data-exchange
+  template:
+    metadata:
+      labels:
+        app: data-exchange
+    spec:
+      volumes:
+      - name: shared-data
+        emptyDir: {}
+      containers:
+      - name: busybox
+        image: busybox
+        command:
+          - sh
+          - -c
+          - |
+            while true; do
+              echo "Current time: $(date)" >> /data/exchange.txt;
+              sleep 5;
+            done
+        volumeMounts:
+        - name: shared-data
+          mountPath: /data
+      - name: multitool
+        image: busybox
+        command:
+          - sh
+          - -c
+          - |
+            tail -f /data/exchange.txt
+        volumeMounts:
+        - name: shared-data
+          mountPath: /data

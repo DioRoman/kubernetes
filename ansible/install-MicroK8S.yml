@@ -1,82 +1,148 @@
 ---
-- name: Install and configure MicroK8s on Ubuntu 24.04
+- name: Установка и настройка MicroK8s на Ubuntu 24.04
   hosts: MicroK8S-servers
   become: true
+  vars:
+    dashboard_port: 10443
+    token_duration: "8760h"
+    
   tasks:
-    - name: Ensure snapd is installed
+    - name: Обновление индекса пакетов
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Установка snapd
       apt:
         name: snapd
         state: present
-        update_cache: true
 
-    - name: Install MicroK8s (latest stable) classic channel
-      community.general.snap:
-        name: microk8s
-        classic: true
-        state: present
-        channel: stable
+    - name: Установка MicroK8s
+      command: snap install microk8s --classic --channel=stable
+      environment:
+        PATH: "/snap/bin:{{ ansible_env.PATH }}"
 
-    - name: Add user to microk8s group
+    - name: Установка kubectl
+      command: snap install kubectl --classic --channel=latest/stable
+      environment:
+        PATH: "/snap/bin:{{ ansible_env.PATH }}"
+
+    - name: Добавление пользователя в группу microk8s
       user:
         name: "{{ ansible_user }}"
         groups: microk8s
         append: yes
 
-    - name: Start MicroK8s service
+    - name: Запуск службы MicroK8s
       command: microk8s start
       environment:
         PATH: "/snap/bin:{{ ansible_env.PATH }}"
-      become: true
 
-    - name: Wait until MicroK8s is ready
+    - name: Ожидание готовности MicroK8s
       command: microk8s status --wait-ready
       environment:
         PATH: "/snap/bin:{{ ansible_env.PATH }}"
-      become: true
+      register: microk8s_ready
+      until: microk8s_ready.rc == 0
+      retries: 10
+      delay: 10
 
-    - name: Enable MicroK8s dashboard addon
+    - name: Включение аддона дашборда
       command: microk8s enable dashboard
       environment:
         PATH: "/snap/bin:{{ ansible_env.PATH }}"
-      become: true
 
-    - name: Set external_ip from inventory (ansible_host)
-      set_fact:
-        external_ip: "{{ ansible_host | default(inventory_hostname) }}"
+    - name: Ожидание готовности подов дашборда
+      command: microk8s kubectl wait --namespace kube-system --for=condition=ready pod -l k8s-app=kubernetes-dashboard --timeout=180s
+      environment:
+        PATH: "/snap/bin:{{ ansible_env.PATH }}"
 
-    - name: Generate dashboard access token using kubectl create token
-      command: microk8s kubectl -n kube-system create token default
+    - name: Создание сервисного аккаунта для дашборда
+      command: microk8s kubectl apply -f -
+      args:
+        stdin: |
+          apiVersion: v1
+          kind: ServiceAccount
+          metadata:
+            name: dashboard-admin
+            namespace: kube-system
+          ---
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRoleBinding
+          metadata:
+            name: dashboard-admin
+          roleRef:
+            apiGroup: rbac.authorization.k8s.io
+            kind: ClusterRole
+            name: cluster-admin
+          subjects:
+          - kind: ServiceAccount
+            name: dashboard-admin
+            namespace: kube-system
+      environment:
+        PATH: "/snap/bin:{{ ansible_env.PATH }}"
+
+    - name: Генерация токена для dashboard-admin
+      command: microk8s kubectl -n kube-system create token dashboard-admin --duration={{ token_duration }}
       register: dashboard_token
       environment:
         PATH: "/snap/bin:{{ ansible_env.PATH }}"
-      become: true
 
-    - name: Output dashboard access info with external IP from inventory
-      debug:
-        msg:
-          - "Dashboard is running at https://{{ external_ip }}:10443"
-          - "Use the following token to login:"
-          - "{{ dashboard_token.stdout }}"
-
-    - name: Start port forwarding for external dashboard access
+    - name: Запуск проброса портов с помощью systemd-run
       shell: |
-        nohup microk8s kubectl port-forward -n kube-system service/kubernetes-dashboard 10443:443 --address 0.0.0.0 > /tmp/k8s-dashboard-port-forward.log 2>&1 &
+        systemd-run --user --unit=k8s-dashboard --same-dir \
+          microk8s kubectl port-forward -n kube-system service/kubernetes-dashboard {{ dashboard_port }}:443 --address 0.0.0.0
+      environment:
+        PATH: "/snap/bin:{{ ansible_env.PATH }}"
       args:
         executable: /bin/bash
+      async: 5
+      poll: 0
+      ignore_errors: yes
+
+    - name: Создание скрипта для ручного запуска портов
+      copy:
+        dest: "/home/{{ ansible_user }}/start-dashboard.sh"
+        content: |
+          #!/bin/bash
+          echo "Starting Kubernetes Dashboard on port {{ dashboard_port }}..."
+          pkill -f "port-forward.*{{ dashboard_port }}"
+          sleep 2
+          nohup microk8s kubectl port-forward -n kube-system service/kubernetes-dashboard {{ dashboard_port }}:443 --address 0.0.0.0 > /tmp/k8s-dashboard.log 2>&1 &
+          echo $! > /tmp/k8s-dashboard.pid
+          echo "Dashboard started with PID: $(cat /tmp/k8s-dashboard.pid)"
+          echo "Check logs: /tmp/k8s-dashboard.log"
+        mode: '0755'
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    - name: Запуск скрипта для портов
+      command: /bin/bash /home/{{ ansible_user }}/start-dashboard.sh
+      environment:
+        PATH: "/snap/bin:{{ ansible_env.PATH }}"
       async: 10
       poll: 0
-      become: false
+      ignore_errors: yes
 
-    - name: Ensure .kube directory exists in user home
+    - name: Ждем немного перед проверкой
+      pause:
+        seconds: 5
+
+    - name: Простая проверка порта
+      shell: |
+        ss -tln | grep {{ dashboard_port }} && echo "PORT_OPEN" || echo "PORT_CLOSED"
+      register: port_check
+      changed_when: false
+
+    - name: Создание .kube директории
       file:
         path: "/home/{{ ansible_user }}/.kube"
         state: directory
         mode: '0700'
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
-      become: false
 
-    - name: Copy kubeconfig file to user home for kubectl access
+    - name: Копирование kubeconfig
       copy:
         src: /var/snap/microk8s/current/credentials/client.config
         dest: "/home/{{ ansible_user }}/.kube/config"
@@ -84,7 +150,43 @@
         group: "{{ ansible_user }}"
         mode: '0600'
         remote_src: true
-      become: false
+
+    - name: Настройка kubectl
+      command: kubectl config use-context microk8s
+      environment:
+        PATH: "/snap/bin:{{ ansible_env.PATH }}"
+        KUBECONFIG: "/home/{{ ansible_user }}/.kube/config"
+
+    - name: Добавление PATH в .bashrc
+      lineinfile:
+        path: "/home/{{ ansible_user }}/.bashrc"
+        line: 'export PATH="/snap/bin:$PATH"'
+        create: yes
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    - name: Проверка установки kubectl
+      command: kubectl version --client
+      register: kubectl_version
+      environment:
+        PATH: "/snap/bin:{{ ansible_env.PATH }}"
+      changed_when: false
+
+    - name: Проверка подключения к кластеру
+      command: kubectl cluster-info
+      register: cluster_info
+      environment:
+        PATH: "/snap/bin:{{ ansible_env.PATH }}"
+        KUBECONFIG: "/home/{{ ansible_user }}/.kube/config"
+      changed_when: false
+      ignore_errors: yes
+
+    - name: Вывод финальной информации
+      debug:
+        msg:
+          - "Dashboard is running at https://{{ ansible_host }}:{{ dashboard_port }}"
+          - "Use the following token to login:"
+          - "{{ dashboard_token.stdout }}"
 
     - name: Copy all yaml files from directory
       copy:
@@ -94,5 +196,5 @@
         group: "{{ ansible_user }}"
         mode: '0644'
       with_fileglob:
-        - "/mnt/c/Users/rlyst/Netology/kubernetes/1.4/*.yaml"
+        - "/mnt/c/Users/rlyst/Netology/kubernetes/2.1/*.yaml"
       become: false
