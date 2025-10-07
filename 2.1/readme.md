@@ -1,5 +1,6 @@
-<details><summary>A dropdown list for markdown</summary>
+<details><summary>kubectl describe pods data-exchange</summary>
 
+```
 ubuntu@kubernetes:~$ kubectl describe pods data-exchange
 Name:             data-exchange-76d46fc476-65xcb
 Namespace:        default
@@ -93,14 +94,14 @@ Events:
   Normal  Pulled     2m31s  kubelet            Successfully pulled image "busybox" in 940ms (940ms including waiting). Image size: 2223686 bytes.
   Normal  Created    2m31s  kubelet            Created container: multitool
   Normal  Started    2m31s  kubelet            Started container multitool
+```
 
 </details>
 
 
+<details><summary>kubectl describe pod kubectl data-exchange-pvc</summary>
 
-
-<details><summary>A dropdown list for markdown</summary>
-
+```
   ubuntu@kubernetes:~$ kubectl describe pod kubectl data-exchange-pvc-7f79bb49c4-w2ph4
 Name:             data-exchange-pvc-7f79bb49c4-w2ph4
 Namespace:        default
@@ -196,6 +197,7 @@ Events:
   Normal   Created           5m2s  kubelet            Created container: multitool
   Normal   Started           5m2s  kubelet            Started container multitool
 Error from server (NotFound): pods "kubectl" not found
+```
 
 </details>
 
