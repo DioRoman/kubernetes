@@ -185,32 +185,6 @@ https://github.com/DioRoman/kubernetes/blob/main/2.1/pv-pvc.yaml
 
 Скриншоты:
 
-Запуск манифеста:
-
-<img width="746" height="76" alt="Снимок экрана 2025-10-07 230543" src="https://github.com/user-attachments/assets/a9d4296c-14a6-4a4d-83ea-912ff6722d54" />
-
-Демонстрация, того что контейнер multitool может читать данные из файла в смонтированной директории, в который busybox записывает данные каждые 5 секунд:
-
-<img width="866" height="585" alt="Снимок экрана 2025-10-07 230617" src="https://github.com/user-attachments/assets/c17c9ebc-5218-4a71-8595-c319002ff32e" />
-
-Удаление Deployment и PVC:
-
-<img width="772" height="578" alt="Снимок экрана 2025-10-07 230948" src="https://github.com/user-attachments/assets/c1ad036d-57ff-40f3-97d8-d9e379e52097" />
-
-Демонстрация, того что файл сохранился на локальном диске ноды после удаления PV:
-
-<img width="506" height="307" alt="Снимок экрана 2025-10-07 231050" src="https://github.com/user-attachments/assets/3878cb91-eccb-4b83-9056-aacc580c419c" />
-
-Файл остаётся после удаления PersistentVolume (PV), потому что в нашем PV используется тип тома hostPath, который просто монтирует локальную директорию с диска узла (ноды) Kubernetes в контейнер. Это не виртуальное или облачное хранилище, а реальная папка на файловой системе ноды. Политика persistentVolumeReclaimPolicy у PV установлена в Retain, что значит Kubernetes не удаляет физические данные автоматически при удалении PV или PVC. PV становится статусом Released, но данные остаются.
-
-## 3. StorageClass
-
-Создаём Deployment приложения, использующего PVC, созданный на основе StorageClass.
-
-https://github.com/DioRoman/kubernetes/blob/main/2.1/sc.yaml
-
-
-
 
 <details><summary>kubectl describe pod kubectl data-exchange-pvc</summary>
 
@@ -314,188 +288,67 @@ Error from server (NotFound): pods "kubectl" not found
 
 </details>
 
-Мы создали PersistentVolume (PV), PersistentVolumeClaim (PVC) и Deployment с двумя контейнерами, чтобы обеспечить постоянное и совместное хранение данных в Kubernetes.
+Запуск манифеста:
 
-- **PV** — это ресурс хранения, выделенный в кластере, в нашем случае это папка на локальной ноде. Он существует независимо от жизненного цикла подов и служит абстракцией физического хранилища.
+<img width="746" height="76" alt="Снимок экрана 2025-10-07 230543" src="https://github.com/user-attachments/assets/a9d4296c-14a6-4a4d-83ea-912ff6722d54" />
 
-- **PVC** — это запрос пользователя или пода к PV с указанием требуемого объема и режима доступа. Kubernetes ищет подходящий PV, который соответствует требованиям PVC, и связывает их (binding).
+Демонстрация, того что контейнер multitool может читать данные из файла в смонтированной директории, в который busybox записывает данные каждые 5 секунд:
 
-- В нашем Deployment два контейнера — busybox записывает данные в файл в общем томе, а multitool читает этот файл.
+<img width="866" height="585" alt="Снимок экрана 2025-10-07 230617" src="https://github.com/user-attachments/assets/c17c9ebc-5218-4a71-8595-c319002ff32e" />
 
-Почему это так работает:
+Удаление Deployment и PVC:
 
-- Данные сохраняются в локальной директории ноды, связанной с PV, благодаря использованию `hostPath` в PV. Это обеспечивает устойчивость данных даже при рестарте или удалении подов.
+<img width="772" height="578" alt="Снимок экрана 2025-10-07 230948" src="https://github.com/user-attachments/assets/c1ad036d-57ff-40f3-97d8-d9e379e52097" />
 
-- ReclaimPolicy установлен в `Retain`, поэтому при удалении PVC и Deployment PV не удаляется и данные остаются на диске.
+Демонстрация, того что файл сохранился на локальном диске ноды после удаления PV:
 
-- Связывание PVC и PV позволяет абстрагировать управление хранением от подов: они запрашивают нужный объем, а Kubernetes обеспечивает привязку и монтирование.
+<img width="506" height="307" alt="Снимок экрана 2025-10-07 231050" src="https://github.com/user-attachments/assets/3878cb91-eccb-4b83-9056-aacc580c419c" />
 
-Таким образом, мы отделили управление данными от жизненного цикла контейнеров, гарантируя, что данные сохраняются и доступны для разных подов по мере необходимости.
+Файл остаётся после удаления PersistentVolume (PV), потому что в нашем PV используется тип тома hostPath, который просто монтирует локальную директорию с диска узла (ноды) Kubernetes в контейнер. Это не виртуальное или облачное хранилище, а реальная папка на файловой системе ноды. Политика persistentVolumeReclaimPolicy у PV установлена в Retain, что значит Kubernetes не удаляет физические данные автоматически при удалении PV или PVC. PV становится статусом Released, но данные остаются.
 
-Файл остаётся после удаления PersistentVolume (PV), потому что в нашем PV используется тип тома `hostPath`, который просто монтирует локальную директорию с диска узла (ноды) Kubernetes в контейнер. Это не виртуальное или облачное хранилище, а реальная папка на файловой системе ноды.
+## 3. StorageClass
 
-Основные причины, почему данные остаются:
+Создаём Deployment приложения, использующего PVC, созданный на основе StorageClass.
 
-- У PV с `hostPath` физические данные хранятся непосредственно в указанной директории на ноде (например, /mnt/data), и Kubernetes не управляет этим хранилищем напрямую — он только предоставляет доступ к нему контейнерам.
+https://github.com/DioRoman/kubernetes/blob/main/2.1/sc.yaml
 
-- Политика `persistentVolumeReclaimPolicy` у PV установлена в `Retain`, что значит Kubernetes не удаляет физические данные автоматически при удалении PV или PVC. PV становится статусом Released, но данные остаются.
+Суть этого `Deployment` в том, чтобы развернуть один реплицированный под, внутри которого два контейнера обмениваются данными через общий том, подключённый как **PersistentVolume**.  
 
-- Удаление объекта PV освобождает ресурс в Kubernetes, но не удаляет файлы с локального диска, потому что Kubernetes не контролирует удаление папок или файлов на узле, это надо делать вручную.
+### Основная логика
+- **Busybox (первый контейнер)** каждые 5 секунд дописывает строку с текущим временем в файл `exchange.txt` в директории `/data`.
+- **Multitool (второй контейнер)** постоянно выполняет `tail -f` этого же файла, выводя новые строки в реальном времени.
 
-Таким образом, с `hostPath` Kubernetes лишь "связывает" папку с подом, но не контролирует хранение или удаление данных, что и позволяет сохранять файлы даже после удаления PV. Чтобы удалить данные, нужно вручную очистить соответствующую директорию на ноде.
+### Хранение данных
+- В поде смонтирован общий том **shared-data**, который связан с PVC (`local-pvc`), а тот — с PV (`local-pv`).
+- PV использует `hostPath` `/mnt/data` на узле, что значит, что данные физически лежат на локальной директории ноды и сохраняются даже при перезапуске пода.
+- StorageClass `local-storage` с `WaitForFirstConsumer` гарантирует, что привязка PV к PVC произойдёт только при создании первого потребителя (пода).
 
+### Итог
+Этот Deployment демонстрирует:
+- работу **общего тома** между контейнерами в одном поде;
+- использование **PersistentVolumeClaim** и **StorageClass** для управления хранилищем;
+- пример обмена данными между контейнерами через файловую систему, причём данные сохраняются вне контейнеров.
 
-Вот последовательные команды для выполнения задания с StorageClass, PVC и Deployment:
+Контейнеры в Поде
+      │
+      │   (volumeMounts: /data)
+      ▼
+┌─────────────────────────────────────────┐
+│            Pod: data-exchange-sc        │
+│ ┌──────────────┐ ┌──────────────┐       │
+│ │ Busybox      │ │ Multitool    │       │
+│ └──────────────┘ └──────────────┘       │
+│     │                   │               │
+│     └───────┬───────────┘               │
+│             │ (shared-data volume)      │
+│             ▼                           │
+│      PVC: local-pvc                     │
+│             │                           │
+│             ▼                           │
+│      PV: local-pv                       │
+│             │                           │
+│     hostPath: /mnt/data                 │
+└─────────────────────────────────────────┘
 
-1. Создать StorageClass из файла storageclass.yaml:
-```bash
-kubectl apply -f storageclass.yaml
-```
-
-2. Проверить, что StorageClass создан успешно:
-```bash
-kubectl get storageclass
-```
-
-3. Создать PersistentVolumeClaim из файла pvc.yaml (который ссылается на созданный StorageClass):
-```bash
-kubectl apply -f pvc.yaml
-```
-
-4. Проверить статус PVC:
-```bash
-kubectl get pvc
-```
-
-5. Создать Deployment из файла deployment.yaml, в котором контейнеры монтируют PVC:
-```bash
-kubectl apply -f deployment.yaml
-```
-
-6. Проверить статус подов:
-```bash
-kubectl get pods -l app=data-exchange-sc
-```
-
-7. Получить имя пода для чтения логов:
-```bash
-kubectl get pods -l app=data-exchange-sc -o jsonpath='{.items[0].metadata.name}'
-```
-
-8. Просмотреть логи контейнера multitool для проверки чтения файла:
-```bash
-kubectl logs -f <pod_name> -c multitool
-```
-
-9. Описать состояние PVC и PV (если нужно):
-```bash
-kubectl describe pvc local-pvc
-kubectl describe pv
-```
-
-10. При необходимости удалить созданные ресурсы:
-```bash
-kubectl delete deployment data-exchange-sc
-kubectl delete pvc local-pvc
-kubectl delete storageclass local-storage
-```
-
-Эти команды выполнят полное создание и проверку работы StorageClass, PVC и Deployment для обмена файлами между двумя контейнерами через динамически выделенный локальный том.Вот последовательные команды для выполнения задания с StorageClass, PVC и Deployment:
-
-1. Создать StorageClass:
-```bash
-kubectl apply -f storageclass.yaml
-```
-
-2. Проверить создание StorageClass:
-```bash
-kubectl get storageclass
-```
-
-3. Создать PVC:
-```bash
-kubectl apply -f pvc.yaml
-```
-
-4. Проверить статус PVC:
-```bash
-kubectl get pvc
-```
-
-5. Создать Deployment:
-```bash
-kubectl apply -f deployment.yaml
-```
-
-6. Проверить поды:
-```bash
-kubectl get pods -l app=data-exchange-sc
-```
-
-7. Получить имя пода:
-```bash
-kubectl get pods -l app=data-exchange-sc -o jsonpath='{.items[0].metadata.name}'
-```
-
-8. Просмотреть логи контейнера multitool:
-```bash
-kubectl logs -f <pod_name> -c multitool
-```
-
-9. При необходимости удалить ресурсы:
-```bash
-kubectl delete deployment data-exchange-sc
-kubectl delete pvc local-pvc
-kubectl delete storageclass local-storage
-```
-
-Эти команды обеспечат создание и проверку динамического тома с помощью StorageClass, PVC и обмен данными между контейнерами.Вот последовательные команды для создания и проверки StorageClass, PVC и Deployment в Kubernetes:
-
-1. Создать StorageClass:
-```bash
-kubectl apply -f storageclass.yaml
-```
-
-2. Проверить StorageClass:
-```bash
-kubectl get storageclass
-```
-
-3. Создать PVC:
-```bash
-kubectl apply -f pvc.yaml
-```
-
-4. Проверить PVC:
-```bash
-kubectl get pvc
-```
-
-5. Создать Deployment:
-```bash
-kubectl apply -f deployment.yaml
-```
-
-6. Проверить под:
-```bash
-kubectl get pods -l app=data-exchange-sc
-```
-
-7. Получить имя пода:
-```bash
-kubectl get pods -l app=data-exchange-sc -o jsonpath='{.items[0].metadata.name}'
-```
-
-8. Просмотреть логи multitool:
-```bash
-kubectl logs -f <pod_name> -c multitool
-```
-
-9. Удалить ресурсы при необходимости:
-```bash
-kubectl delete deployment data-exchange-sc
-kubectl delete pvc local-pvc
-kubectl delete storageclass local-storage
-```
 
 Эти команды позволяют создать, проверить и удалить необходимые объекты для работы приложения с динамическим томом через StorageClass.
