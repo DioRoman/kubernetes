@@ -185,7 +185,6 @@ https://github.com/DioRoman/kubernetes/blob/main/2.1/pv-pvc.yaml
 
 Скриншоты:
 
-
 <details><summary>kubectl describe pod kubectl data-exchange-pvc</summary>
 
 ```
@@ -306,6 +305,18 @@ Error from server (NotFound): pods "kubectl" not found
 
 Файл остаётся после удаления PersistentVolume (PV), потому что в нашем PV используется тип тома hostPath, который просто монтирует локальную директорию с диска узла (ноды) Kubernetes в контейнер. Это не виртуальное или облачное хранилище, а реальная папка на файловой системе ноды. Политика persistentVolumeReclaimPolicy у PV установлена в Retain, что значит Kubernetes не удаляет физические данные автоматически при удалении PV или PVC. PV становится статусом Released, но данные остаются.
 
+Список команд:
+
+`kubectl apply -f pv-pvc.yaml`
+`kubectl get pv`
+`kubectl get pvc`
+`kubectl get pods -l app=data-exchange-pvc`
+`kubectl logs -f <pod_name> -c multitool`
+`kubectl describe pod <pod_name>`
+`kubectl delete deployment data-exchange-pvc`
+`kubectl delete pvc local-pvc`
+`kubectl describe pv local-pv`
+
 ## 3. StorageClass
 
 Создаём Deployment приложения, использующего PVC, созданный на основе StorageClass.
@@ -329,26 +340,16 @@ https://github.com/DioRoman/kubernetes/blob/main/2.1/sc.yaml
 - использование **PersistentVolumeClaim** и **StorageClass** для управления хранилищем;
 - пример обмена данными между контейнерами через файловую систему, причём данные сохраняются вне контейнеров.
 
-Контейнеры в Поде
-      │
-      │   (volumeMounts: /data)
-      ▼
-┌─────────────────────────────────────────┐
-│            Pod: data-exchange-sc        │
-│ ┌──────────────┐ ┌──────────────┐       │
-│ │ Busybox      │ │ Multitool    │       │
-│ └──────────────┘ └──────────────┘       │
-│     │                   │               │
-│     └───────┬───────────┘               │
-│             │ (shared-data volume)      │
-│             ▼                           │
-│      PVC: local-pvc                     │
-│             │                           │
-│             ▼                           │
-│      PV: local-pv                       │
-│             │                           │
-│     hostPath: /mnt/data                 │
-└─────────────────────────────────────────┘
-
-
 Эти команды позволяют создать, проверить и удалить необходимые объекты для работы приложения с динамическим томом через StorageClass.
+
+`kubectl apply -f sc.yaml`
+`kubectl get storageclass`
+`kubectl get pv`
+`kubectl get pvc`
+`kubectl get pods -l app=data-exchange-sc`
+`kubectl logs -f <pod_name> -c multitool`
+`kubectl describe pod <pod_name>`
+`kubectl delete deployment data-exchange-sc`
+`kubectl delete pvc local-pvc`
+`kubectl describe pv local-pv`
+
