@@ -360,7 +360,11 @@ https://github.com/DioRoman/kubernetes/blob/main/2.1/sc.yaml
 
 `kubectl get pods -l app=data-exchange-sc`
 
+<img width="1375" height="395" alt="Снимок экрана 2025-10-08 203153" src="https://github.com/user-attachments/assets/581e80d6-32b5-4bb1-8130-4067de55d5fb" />
+
 `kubectl logs -f <pod_name> -c multitool`
+
+<img width="868" height="236" alt="Снимок экрана 2025-10-08 203215" src="https://github.com/user-attachments/assets/732ce129-35f4-449f-a886-db65b87a60f8" />
 
 `kubectl describe pod <pod_name>`
 
@@ -370,3 +374,6 @@ https://github.com/DioRoman/kubernetes/blob/main/2.1/sc.yaml
 
 `kubectl describe pv local-pv`
 
+<img width="868" height="533" alt="Снимок экрана 2025-10-08 203311" src="https://github.com/user-attachments/assets/faf54957-a46b-4000-8b21-fcd5fe214b42" />
+
+<img width="489" height="485" alt="Снимок экрана 2025-10-08 203509" src="https://github.com/user-attachments/assets/191d0b15-b871-4e78-9c54-a69b5f0d5a2c" />
