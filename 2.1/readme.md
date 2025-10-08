@@ -308,13 +308,21 @@ Error from server (NotFound): pods "kubectl" not found
 Список команд:
 
 `kubectl apply -f pv-pvc.yaml`
+
 `kubectl get pv`
+
 `kubectl get pvc`
+
 `kubectl get pods -l app=data-exchange-pvc`
+
 `kubectl logs -f <pod_name> -c multitool`
+
 `kubectl describe pod <pod_name>`
+
 `kubectl delete deployment data-exchange-pvc`
+
 `kubectl delete pvc local-pvc`
+
 `kubectl describe pv local-pv`
 
 ## 3. StorageClass
@@ -343,13 +351,22 @@ https://github.com/DioRoman/kubernetes/blob/main/2.1/sc.yaml
 Эти команды позволяют создать, проверить и удалить необходимые объекты для работы приложения с динамическим томом через StorageClass.
 
 `kubectl apply -f sc.yaml`
+
 `kubectl get storageclass`
+
 `kubectl get pv`
+
 `kubectl get pvc`
+
 `kubectl get pods -l app=data-exchange-sc`
+
 `kubectl logs -f <pod_name> -c multitool`
+
 `kubectl describe pod <pod_name>`
+
 `kubectl delete deployment data-exchange-sc`
+
 `kubectl delete pvc local-pvc`
+
 `kubectl describe pv local-pv`
 
