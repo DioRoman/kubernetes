@@ -1,3 +1,48 @@
+## 1. Volume: обмен данными между контейнерами в поде
+
+Создаём Deployment приложения, состоящего из контейнеров busybox и multitool.
+
+https://github.com/DioRoman/kubernetes/blob/main/2.1/containers-data-exchange.yaml
+
+Этот манифест Kubernetes описывает **Deployment**, создающий Pod с двумя контейнерами, которые обмениваются данными через общий том. Его основная суть — демонстрация обмена данными между контейнерами в одном Pod'е с помощью **emptyDir**.
+
+### Разбор по компонентам
+
+- **apiVersion: apps/v1** и **kind: Deployment**  
+  Определяют, что создаётся контроллер типа *Deployment*, управляющий жизненным циклом подов (репликация, обновление, автозамена при сбое и т.д.).
+
+- **metadata.name: data-exchange**  
+  Имя деплоймента — `data-exchange`.
+
+- **spec.replicas: 1**  
+  Будет запущен один Pod.
+
+- **spec.selector.matchLabels** и **template.metadata.labels**  
+  Используются для связи Deployment с шаблоном Pod'а. Deployment будет управлять всеми подами с меткой `app: data-exchange`.
+
+### Шаблон Pod’а (`template`)
+
+- **volumes → emptyDir**  
+  Создаётся временный том `shared-data`, который существует только во время жизни Pod'а. Он используется как общий каталог между контейнерами.
+
+#### Контейнер 1: busybox
+- Образ: `busybox`
+- Команда: каждые 5 секунд записывает текущие дату и время в файл  
+  `/data/exchange.txt`
+- Монтирует том `shared-data` по пути `/data`
+
+#### Контейнер 2: multitool (тоже busybox)
+- Команда: отображает содержимое файла `/data/exchange.txt` в режиме реального времени с помощью `tail -f`
+- Монтирует тот же том по тому же пути `/data`
+
+### Результат работы
+
+1. Контейнер `busybox` генерирует строку с текущим временем каждые 5 секунд и добавляет её в файл `exchange.txt`.  
+2. Контейнер `multitool` мгновенно видит эти обновления и выводит их в лог.  
+3. Они обмениваются данными через **общий том `emptyDir`**, который доступен обоим контейнерам, но не сохраняется после удаления Pod'а.
+
+Таким образом, Deployment иллюстрирует концепцию *общих томов и обмена файлами между контейнерами внутри одного Pod’a* в Kubernetes.
+
 <details><summary>kubectl describe pods data-exchange</summary>
 
 ```
@@ -97,6 +142,74 @@ Events:
 ```
 
 </details>
+
+Вывод команды `tail -f <имя общего файла>`
+
+<img width="1155" height="275" alt="Снимок экрана 2025-10-07 202349" src="https://github.com/user-attachments/assets/32252a73-3812-4876-8383-7853a89505a6" />
+
+## 2. PV, PVC
+
+Создаём Deployment.
+
+https://github.com/DioRoman/kubernetes/blob/main/2.1/pv-pvc.yaml
+
+Суть данного манифеста — организация **совместного доступа двух контейнеров внутри одного пода к общему хранилищу**, которое сохраняет данные на локальном пути ноды через PersistentVolume (PV) и PersistentVolumeClaim (PVC).  
+
+### Разбор по частям
+
+#### PersistentVolume (PV)
+- **apiVersion: v1, kind: PersistentVolume** — описание постоянного хранилища на стороне кластера.  
+- `hostPath: /mnt/data` — используется локальная директория на хостовой машине (ноде Kubernetes).  
+- `capacity: 1Gi` — вместимость PV составляет 1 ГБ.  
+- `accessModes: ReadWriteOnce` — том может быть смонтирован для чтения и записи только одним подом.  
+- `persistentVolumeReclaimPolicy: Retain` — при удалении PVC данные сохраняются на узле.  
+- `storageClassName: local-storage` — указывает на класс хранения, который должен использоваться PVC.
+
+#### PersistentVolumeClaim (PVC)
+- **Запрашивает** использование PV размером 1 ГБ с тем же `storageClassName: local-storage`.  
+- После связывания с PV предоставляет подам **абстрактный доступ** к реальному хранилищу.
+
+#### Deployment
+- **apiVersion: apps/v1, kind: Deployment** — описывает управление подами (репликами и их обновлением).  
+- Создаёт один под (`replicas: 1`), состоящий из двух контейнеров:  
+  - **busybox** — каждые 5 секунд записывает текущую дату и время в файл `/data/exchange.txt`.  
+  - **multitool** (также busybox) — непрерывно читает и выводит содержимое этого же файла (`tail -f /data/exchange.txt`).  
+- Оба контейнера **монтируют один и тот же том** `shared-data`, связанный с PVC `local-pvc`, в директорию `/data`.
+
+### Итог
+Манифест демонстрирует:
+- создание локального постоянного хранилища (PV),
+- использование этого хранилища подом через PVC,
+- обмен данными между контейнерами в поде через общий том,
+- сохранение данных на ноде даже после удаления пода (из-за `Retain`).
+
+Скриншоты:
+
+Запуск манифеста:
+
+<img width="746" height="76" alt="Снимок экрана 2025-10-07 230543" src="https://github.com/user-attachments/assets/a9d4296c-14a6-4a4d-83ea-912ff6722d54" />
+
+Демонстрация, того что контейнер multitool может читать данные из файла в смонтированной директории, в который busybox записывает данные каждые 5 секунд:
+
+<img width="866" height="585" alt="Снимок экрана 2025-10-07 230617" src="https://github.com/user-attachments/assets/c17c9ebc-5218-4a71-8595-c319002ff32e" />
+
+Удаление Deployment и PVC:
+
+<img width="772" height="578" alt="Снимок экрана 2025-10-07 230948" src="https://github.com/user-attachments/assets/c1ad036d-57ff-40f3-97d8-d9e379e52097" />
+
+Демонстрация, того что файл сохранился на локальном диске ноды после удаления PV:
+
+<img width="506" height="307" alt="Снимок экрана 2025-10-07 231050" src="https://github.com/user-attachments/assets/3878cb91-eccb-4b83-9056-aacc580c419c" />
+
+Файл остаётся после удаления PersistentVolume (PV), потому что в нашем PV используется тип тома hostPath, который просто монтирует локальную директорию с диска узла (ноды) Kubernetes в контейнер. Это не виртуальное или облачное хранилище, а реальная папка на файловой системе ноды. Политика persistentVolumeReclaimPolicy у PV установлена в Retain, что значит Kubernetes не удаляет физические данные автоматически при удалении PV или PVC. PV становится статусом Released, но данные остаются.
+
+## 3. StorageClass
+
+Создаём Deployment приложения, использующего PVC, созданный на основе StorageClass.
+
+https://github.com/DioRoman/kubernetes/blob/main/2.1/sc.yaml
+
+
 
 
 <details><summary>kubectl describe pod kubectl data-exchange-pvc</summary>
