@@ -15,7 +15,6 @@
 
 - `cd /mnt/c/Users/rlyst/Netology/kubernetes/ansible` — переход в каталог с Ansible-плейбуками.
 - `ansible-playbook -i inventories/hosts.yml install-MicroK8S.yml` — запуск плейбука для установки MicroK8s на указанных хостах.
-- `ansible-playbook -i inventories/hosts.yml install-kubectl.yml` — запуск плейбука для установки kubectl на указанных хостах.
 
 ***
 

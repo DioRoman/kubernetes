@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-webpage
+data:
+  index.html: |
+    <html>
+      <head><title>Test page</title></head>
+      <body><h1>Hello it is test page from configmap</h1></body>
+    </html>

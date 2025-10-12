@@ -196,5 +196,5 @@
         group: "{{ ansible_user }}"
         mode: '0644'
       with_fileglob:
-        - "/mnt/c/Users/rlyst/Netology/kubernetes/2.1/*.yaml"
+        - "/mnt/c/Users/rlyst/Netology/kubernetes/2.3/*.yaml"
       become: false
