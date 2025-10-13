@@ -54,17 +54,17 @@ configmap-web.yaml
 
 Эта ConfigMap может быть использована в подах Kubernetes для монтирования веб-страницы как файла или передаче конфигурации в контейнер. Например, монтирование `index.html` в веб-сервер, чтобы отобразить эту страницу.
 
-### 1.3 Проверяем доступность
-
-`curl -k http://158.160.112.55`
-
-### 1.4 Шаги выполнения
+### 1.3 Шаги выполнения
 
 `microk8s enable ingress`
 
 `microk8s kubectl apply -f deployment.yaml`
 
 `microk8s kubectl apply -f configmap-web.yaml`
+
+### 1.4 Проверяем доступность
+
+`curl -k http://158.160.112.55`
 
 ## 2. Настройка HTTPS с Secrets
 
@@ -107,11 +107,7 @@ secret-tls.yaml
 
 Этот секрет можно использовать для обеспечения TLS-данными приложений в Kubernetes, например, для настройки входящего трафика через ingress или для приложений, работающих по протоколу TLS.
 
-### 2.4 Проверяем доступность
-
-`curl -k https://158.160.112.55`
-
-### 2.5 Шаги выполнения
+### 2.4 Шаги выполнения
 
 `microk8s enable ingress`
 
@@ -121,7 +117,41 @@ secret-tls.yaml
 
 `microk8s kubectl create secret tls myapp-tls --cert=tls.crt --key=tls.key`
 
-### 3.2 Создаём Role (только просмотр логов и описания подов) и RoleBinding
+### 2.5 Проверяем доступность
+
+`curl -k https://158.160.112.55`
+
+## 3. Настройка RBAC
+
+### 3.1 Включаем RBAC в microk8s
+
+`microk8s enable rbac`
+
+RBAC (Role-Based Access Control) в MicroK8s используется для управления доступом пользователей и сервисов к ресурсам Kubernetes кластера, разделяя права на основе ролей. В MicroK8s RBAC можно включить через аддон с помощью команды microk8s.enable rbac. После включения RBAC создаются роли (Role или ClusterRole), которые определяют набор разрешений (что пользователь или сервис может делать с ресурсами), и связываются с пользователями или группами через RoleBinding или ClusterRoleBinding.
+
+### 3.2 Создаём сертификаты для пользователя
+
+Команды выполняют последовательные шаги для создания ключа, запроса на подпись сертификата (CSR) и подписи этого запроса существующим CA.
+
+1. Команда 
+   ```
+   openssl genrsa -out developer.key 2048
+   ```
+   генерирует новый приватный RSA-ключ длиной 2048 бит и сохраняет его в файл developer.key. Это ключ, используемый для обеспечения безопасности и подписями при создании сертификатов.
+
+2. Команда 
+   ```
+   openssl req -new -key developer.key -out developer.csr -subj "/CN=developer"
+   ```
+   создает новый запрос на подпись сертификата (CSR), используя приватный ключ developer.key. Параметр -subj задает субъект запроса, в данном случае Common Name (CN) равен "developer". CSR нужен для того, чтобы удостоверяющий центр (CA) мог проверить и подписать сертификат с указанными в нём данными.
+
+3. Команда 
+   ```
+   openssl x509 -req -in developer.csr -CA /var/snap/microk8s/current/certs/ca.crt -CAkey /var/snap/microk8s/current/certs/ca.key -CAcreateserial -out developer.crt -days 365
+   ```
+   подписывает CSR файлом CA-сертификата и закрытым ключом CA, указанными в параметрах -CA и -CAkey. Параметр -CAcreateserial создает файл с серийным номером, если его нет. Результатом является подписанный сертификат developer.crt, действительный 365 дней. Этот процесс позволяет создать сертификат, который доверяет указанный CA.
+
+### 3.3 Создаём Role (только просмотр логов и описания подов) и RoleBinding
 
 role-pod-reader.yaml
 
@@ -133,3 +163,56 @@ rolebinding-developer.yaml
 
 Данный объект RoleBinding с именем "developer-pod-viewer-binding" в пространстве имен "default" связывает пользователя с именем "developer" с ролью "pod-viewer".
 
+### 3.4 Настраиваем kubectl для нового пользователя
+
+`kubectl config set-cluster microk8s-cluster --server=https://10.152.183.1 --certificate-authority=/var/snap/microk8s/current/certs/ca.crt`
+
+— Добавляет или обновляет в kubeconfig описание кластера с именем microk8s-cluster, указывая URL API-сервера Kubernetes (https://10.152.183.1) и путь к сертификату центра сертификации (CA), чтобы kubectl мог проверять SSL подключение к кластеру.
+
+`kubectl config set-credentials developer --client-certificate=developer.crt --client-key=developer.key`
+
+— Создаёт или обновляет в kubeconfig учётные данные пользователя с именем developer, указывая клиентский сертификат и ключ для аутентификации по сертификату.
+
+`kubectl config set-context developer-context --cluster=microk8s-cluster --user=developer --namespace=default`
+
+— Создаёт или обновляет в kubeconfig контекст developer-context, который связывает пользователя developer с кластером microk8s-cluster и указывает namespace по умолчанию default. Контекст хранит все необходимые данные для подключения kubectl.
+
+`kubectl config use-context developer-context`
+
+— Устанавливает активным контекстом developer-context. После этого все команды kubectl будут выполняться в контексте пользователя developer в указанном кластере и namespace.
+
+### 3.6 Шаги выполнения
+
+`microk8s enable ingress`
+
+`microk8s kubectl apply -f deployment-ingress-tls.yaml`
+
+`microk8s kubectl apply -f configmap-web.yaml`
+
+`microk8s kubectl create secret tls myapp-tls --cert=tls.crt --key=tls.key`
+
+`microk8s enable rbac`
+
+`microk8s kubectl apply -f role-pod-reader.yaml`
+
+`microk8s kubectl apply -f rolebinding-developer.yaml`
+
+`kubectl config set-cluster microk8s-cluster --server=https://10.152.183.1 --certificate-authority=/var/snap/microk8s/current/certs/ca.crt`
+
+`kubectl config set-credentials developer --client-certificate=developer.crt --client-key=developer.key`
+
+`kubectl config set-context developer-context --cluster=microk8s-cluster --user=developer --namespace=default`
+
+`kubectl config use-context developer-context`
+
+### 3.6 Проверяем доступ пользователя
+
+`kubectl config current-context`  # проверяем текущий используемый контекст и пользователя
+
+`kubectl config view --minify`   # проверяем текущий используемый контекст и пользователя
+
+`kubectl get pods`          # должно работать
+
+`kubectl logs <pod-name>`    # должно работать
+
+`kubectl create pod ...`     # должно быть запрещено
