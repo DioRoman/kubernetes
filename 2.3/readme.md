@@ -2,7 +2,7 @@
 
 ### 1.1 Создаём Deployment с двумя контейнерами nginx и multitool
 
-deployment.yaml
+https://github.com/DioRoman/kubernetes/blob/main/2.3/deployment.yaml
 
 Данный манифест Kubernetes описывает деплойменты и службы для фронтенда и бэкенда, а также ингресс для маршрутизации трафика следующим образом:
 
@@ -42,7 +42,7 @@ microk8s enable ingress
 
 ### 1.2 Подключаем веб-страницу через ConfigMap
 
-configmap-web.yaml
+https://github.com/DioRoman/kubernetes/blob/main/2.3/configmap-web.yaml
 
 Это пример Kubernetes ConfigMap с именем `frontend-webpage`, который содержит HTML страницу в данных под ключом `index.html`.
 
@@ -58,13 +58,19 @@ configmap-web.yaml
 
 `microk8s enable ingress`
 
+<img width="849" height="369" alt="Снимок экрана 2025-10-13 223236" src="https://github.com/user-attachments/assets/28803740-c412-4187-ab58-b9eab8b049b2" />
+
 `microk8s kubectl apply -f deployment.yaml`
 
 `microk8s kubectl apply -f configmap-web.yaml`
 
+<img width="674" height="184" alt="Снимок экрана 2025-10-13 223248" src="https://github.com/user-attachments/assets/94890f7f-e103-4669-860c-c3ecd8462170" />
+
 ### 1.4 Проверяем доступность
 
 `curl -k http://158.160.112.55`
+
+<img width="674" height="118" alt="Снимок экрана 2025-10-13 210353" src="https://github.com/user-attachments/assets/993f3732-740f-4e51-88d9-45249a924bf5" />
 
 ## 2. Настройка HTTPS с Secrets
 
