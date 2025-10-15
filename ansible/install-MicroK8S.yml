@@ -181,6 +181,30 @@
       changed_when: false
       ignore_errors: yes
 
+    - name: Установка curl (если отсутствует)
+      apt:
+        name: curl
+        state: present
+
+    - name: Загрузка скрипта установки Helm
+      get_url:
+        url: https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+        dest: /tmp/get_helm.sh
+        mode: '0755'
+
+    - name: Запуск скрипта установки Helm
+      command: /tmp/get_helm.sh
+      args:
+        creates: /usr/local/bin/helm
+
+    - name: Добавление /usr/local/bin в PATH для текущего пользователя
+      lineinfile:
+        path: "/home/{{ ansible_user }}/.bashrc"
+        line: 'export PATH=$PATH:/usr/local/bin'
+        create: yes
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
     - name: Вывод финальной информации
       debug:
         msg:
@@ -197,4 +221,18 @@
         mode: '0644'
       with_fileglob:
         - "/mnt/c/Users/rlyst/Netology/kubernetes/2.3/*.yaml"
+      become: false
+
+    - name: Remove existing wordpress-chart to avoid conflicts
+      file:
+        path: "/home/{{ ansible_user }}/wordpress-chart"
+        state: absent
+
+    - name: Copy whole directory recursively
+      copy:
+        src: "/mnt/c/Users/rlyst/Netology/kubernetes/wordpress-chart"
+        dest: "/home/{{ ansible_user }}/"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0644'
       become: false
