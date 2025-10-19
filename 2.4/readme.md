@@ -7,22 +7,25 @@
     - Включение аддона Ingress
     - копирование Helm-чарт в папку пользователя.
 
+https://github.com/DioRoman/kubernetes/blob/main/ansible/install-MicroK8S.yml
+
 ## 1. Подготовливаем Helm-чарт для приложения
 
 ### 1.1 Упаковываем приложение myapp в Helm-чарт для деплоя в разные окружения.
 
-myapp/
-│
-├── Chart.yaml
-├── values.yaml
-└── templates/
-    ├── _helpers.tpl
-    ├── deployment-frontend.yaml
-    ├── deployment-backend.yaml
-    ├── service-frontend.yaml
-    ├── service-backend.yaml
-    ├── ingress.yaml
-    └── configmap-frontend.yaml
+myapp/  
+├── Chart.yaml               
+├── values.yaml              
+└── templates/             
+    ├── _helpers.tpl           
+    ├── deployment-frontend.yaml   
+    ├── deployment-backend.yaml   
+    ├── service-frontend.yaml    
+    ├── service-backend.yaml     
+    ├── ingress.yaml             
+    └── configmap-frontend.yaml  
+
+https://github.com/DioRoman/kubernetes/tree/main/myapp
 
 ### 1.2 Каждый компонент приложения деплоится отдельным deployment’ом или statefulset’ом.
 
@@ -58,6 +61,8 @@ myapp/
 
 `helm install my-app .`
 
+<img width="602" height="159" alt="Снимок экрана 2025-10-19 145353" src="https://github.com/user-attachments/assets/01d3e0aa-d298-4daa-a4d9-c28f8cfaba58" />
+
 Проверяем работу:
 
 `kubectl get pods`
@@ -66,13 +71,21 @@ myapp/
 
 `kubectl get ingress`
 
+<img width="862" height="216" alt="Снимок экрана 2025-10-19 145402" src="https://github.com/user-attachments/assets/530bba01-7bd1-4b62-bc87-5ef27f9ad89f" />
+
+<img width="595" height="84" alt="Снимок экрана 2025-10-19 145405" src="https://github.com/user-attachments/assets/3b595853-0b50-4254-a767-8100c49e79c8" />
+
 В переменных Helm-чарт изменияем образ приложения для изменения версии.
 
 `help upgrade my-app .\myapp`
 
+<img width="545" height="193" alt="Снимок экрана 2025-10-19 145840" src="https://github.com/user-attachments/assets/f7a57cca-8ded-4236-a46b-fd1abee9c0d6" />
+
 Проверяем работу
 
 `curl http://ip`
+
+<img width="1147" height="61" alt="Снимок экрана 2025-10-19 150213" src="https://github.com/user-attachments/assets/72a1d9ae-36f4-4cad-9755-a4a8613caabb" />
 
 ## 2. Запускаем две версии в разных неймспейсах
 
@@ -82,6 +95,7 @@ myapp/
 
 `kubectl create namespace app2`
 
+<img width="517" height="97" alt="Снимок экрана 2025-10-19 172620" src="https://github.com/user-attachments/assets/b2bf7daa-b888-43af-86a5-c4bfb2aa2406" />
 
 ### 2.2 Одну версию приложения запускаем в namespace=app1, вторую версию в том же неймспейсе, третью версию в namespace=app2.
 
@@ -105,6 +119,7 @@ helm install frontend-v3 ./myapp \
   --set frontend.image.tag="latest" \
   --set backend.image.tag="latest"
 ```
+<img width="621" height="695" alt="Снимок экрана 2025-10-19 173641" src="https://github.com/user-attachments/assets/d2450223-c63f-4a57-9fe6-42ba33a428c7" />
 
 ### 2.3 Результат
 
@@ -112,8 +127,12 @@ helm install frontend-v3 ./myapp \
 
 `helm list -A`
 
+<img width="1446" height="126" alt="Снимок экрана 2025-10-19 151014" src="https://github.com/user-attachments/assets/fdb04c64-cb9e-4263-b979-80fc6b098159" />
+
 Просмотреть поды
 
 `kubectl get pods -n app1`
 
 `kubectl get pods -n app2`
+
+<img width="794" height="235" alt="Снимок экрана 2025-10-19 172805" src="https://github.com/user-attachments/assets/62cd55bc-71c9-4179-ad47-2e96b545624d" />
