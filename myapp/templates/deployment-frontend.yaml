@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "frontend-backend.fullname" . }}-frontend
+spec:
+  replicas: {{ .Values.frontend.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "frontend-backend.fullname" . }}-frontend
+  template:
+    metadata:
+      labels:
+        app: {{ include "frontend-backend.fullname" . }}-frontend
+    spec:
+      containers:
+      - name: nginx
+        image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
+        imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: web-content
+          mountPath: /usr/share/nginx/html
+      volumes:
+      - name: web-content
+        configMap:
+          name: {{ include "frontend-backend.fullname" . }}-frontend-webpage
+          items:
+          - key: index.html
+            path: index.html

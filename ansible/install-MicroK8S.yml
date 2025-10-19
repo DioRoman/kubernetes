@@ -52,6 +52,11 @@
       environment:
         PATH: "/snap/bin:{{ ansible_env.PATH }}"
 
+    - name: Включение аддона Ingress
+      command: microk8s enable ingress
+      environment:
+        PATH: "/snap/bin:{{ ansible_env.PATH }}"
+
     - name: Ожидание готовности подов дашборда
       command: microk8s kubectl wait --namespace kube-system --for=condition=ready pod -l k8s-app=kubernetes-dashboard --timeout=180s
       environment:
@@ -220,7 +225,7 @@
         group: "{{ ansible_user }}"
         mode: '0644'
       with_fileglob:
-        - "/mnt/c/Users/rlyst/Netology/kubernetes/2.3/*.yaml"
+        - "/mnt/c/Users/rlyst/Netology/kubernetes/2.4/*.yaml"
       become: false
 
     - name: Remove existing wordpress-chart to avoid conflicts
@@ -230,7 +235,7 @@
 
     - name: Copy whole directory recursively
       copy:
-        src: "/mnt/c/Users/rlyst/Netology/kubernetes/wordpress-chart"
+        src: "/mnt/c/Users/rlyst/Netology/kubernetes/myapp"
         dest: "/home/{{ ansible_user }}/"
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"

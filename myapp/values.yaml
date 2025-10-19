@@ -1,0 +1,29 @@
+frontend:
+  replicaCount: 1
+  image:
+    repository: nginx
+    tag: "1.27"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 80
+  configMap:
+    indexHtml: |
+      <html><head><title>Test page</title></head><body><h1>NEW Hello it is test page from configmap</h1></body></html>
+
+backend:
+  replicaCount: 1
+  image:
+    repository: wbitt/network-multitool
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8080
+  env:
+    HTTP_PORT: "8080"
+
+ingress:
+  enabled: true
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /

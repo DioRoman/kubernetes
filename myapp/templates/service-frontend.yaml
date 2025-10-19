@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "frontend-backend.fullname" . }}-frontend-service
+spec:
+  type: {{ .Values.frontend.service.type }}
+  selector:
+    app: {{ include "frontend-backend.fullname" . }}-frontend
+  ports:
+  - port: {{ .Values.frontend.service.port }}
+    targetPort: {{ .Values.frontend.service.port }}

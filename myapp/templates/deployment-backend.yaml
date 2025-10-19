@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "frontend-backend.fullname" . }}-backend
+spec:
+  replicas: {{ .Values.backend.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "frontend-backend.fullname" . }}-backend
+  template:
+    metadata:
+      labels:
+        app: {{ include "frontend-backend.fullname" . }}-backend
+    spec:
+      containers:
+      - name: multitool
+        image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+        imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+        env:
+        - name: HTTP_PORT
+          value: "{{ .Values.backend.env.HTTP_PORT }}"
+        ports:
+        - containerPort: {{ .Values.backend.service.port }}
