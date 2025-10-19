@@ -217,22 +217,6 @@
           - "Use the following token to login:"
           - "{{ dashboard_token.stdout }}"
 
-    - name: Copy all yaml files from directory
-      copy:
-        src: "{{ item }}"
-        dest: "/home/{{ ansible_user }}/"
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-        mode: '0644'
-      with_fileglob:
-        - "/mnt/c/Users/rlyst/Netology/kubernetes/2.4/*.yaml"
-      become: false
-
-    - name: Remove existing wordpress-chart to avoid conflicts
-      file:
-        path: "/home/{{ ansible_user }}/wordpress-chart"
-        state: absent
-
     - name: Copy whole directory recursively
       copy:
         src: "/mnt/c/Users/rlyst/Netology/kubernetes/myapp"
