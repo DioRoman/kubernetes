@@ -22,11 +22,6 @@
       environment:
         PATH: "/snap/bin:{{ ansible_env.PATH }}"
 
-    - name: Установка kubectl
-      command: snap install kubectl --classic --channel=latest/stable
-      environment:
-        PATH: "/snap/bin:{{ ansible_env.PATH }}"
-
     - name: Добавление пользователя в группу microk8s
       user:
         name: "{{ ansible_user }}"
@@ -156,12 +151,6 @@
         mode: '0600'
         remote_src: true
 
-    - name: Настройка kubectl
-      command: kubectl config use-context microk8s
-      environment:
-        PATH: "/snap/bin:{{ ansible_env.PATH }}"
-        KUBECONFIG: "/home/{{ ansible_user }}/.kube/config"
-
     - name: Добавление PATH в .bashrc
       lineinfile:
         path: "/home/{{ ansible_user }}/.bashrc"
@@ -169,22 +158,6 @@
         create: yes
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
-
-    - name: Проверка установки kubectl
-      command: kubectl version --client
-      register: kubectl_version
-      environment:
-        PATH: "/snap/bin:{{ ansible_env.PATH }}"
-      changed_when: false
-
-    - name: Проверка подключения к кластеру
-      command: kubectl cluster-info
-      register: cluster_info
-      environment:
-        PATH: "/snap/bin:{{ ansible_env.PATH }}"
-        KUBECONFIG: "/home/{{ ansible_user }}/.kube/config"
-      changed_when: false
-      ignore_errors: yes
 
     - name: Установка curl (если отсутствует)
       apt:

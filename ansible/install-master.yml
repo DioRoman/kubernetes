@@ -1,0 +1,249 @@
+- name: Установка и настройка Kubernetes (single-master, containerd, Calico) на Ubuntu 24.04
+  hosts: MicroK8S-servers
+  become: true
+
+  vars:
+    kube_control_plane_hostname: k8s-master
+    kube_control_plane_ip: 10.0.2.34
+    pod_network_cidr: 192.168.0.0/16  # Calico default
+
+  tasks:
+    - name: Установка базовых зависимостей
+      apt:
+        name:
+          - ca-certificates
+          - curl
+          - apt-transport-https
+          - gnupg
+          - gpg
+          - software-properties-common
+        state: present
+        update_cache: yes
+      tags: k8s_tools
+
+    - name: Создать каталог для APT keyrings
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    # Kubernetes repo
+    - name: Загрузка GPG ключа Kubernetes (pkgs.k8s.io)
+      get_url:
+        url: https://pkgs.k8s.io/core:/stable:/v1.34/deb/Release.key
+        dest: /etc/apt/keyrings/kubernetes-apt-keyring.asc
+        mode: '0644'
+
+    - name: Добавление репозитория Kubernetes
+      copy:
+        dest: /etc/apt/sources.list.d/kubernetes.list
+        mode: '0644'
+        content: |
+          deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.asc] https://pkgs.k8s.io/core:/stable:/v1.34/deb/ /
+
+    - name: Обновление индекса пакетов (Kubernetes repo)
+      apt:
+        update_cache: yes
+
+    # Docker/containerd repo
+    - name: Добавление GPG ключа Docker
+      ansible.builtin.apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Добавление Docker репозитория
+      ansible.builtin.apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+
+    - name: Установка containerd
+      apt:
+        name: containerd.io
+        state: present
+        update_cache: yes
+
+    - name: Генерация конфигурации containerd
+      command: containerd config default > /etc/containerd/config.toml
+      args:
+        creates: /etc/containerd/config.toml
+
+    - name: Включение SystemdCgroup в containerd (toml)
+      replace:
+        path: /etc/containerd/config.toml
+        regexp: 'SystemdCgroup = false'
+        replace: 'SystemdCgroup = true'
+
+    - name: Включить и запустить containerd
+      systemd:
+        name: containerd
+        enabled: yes
+        state: restarted
+
+    - name: Проверка версии containerd
+      command: containerd --version
+      register: containerd_version
+
+    # Установка kubernetes компонентов
+    - name: Установка kubelet, kubeadm, kubectl
+      apt:
+        name:
+          - kubelet
+          - kubeadm
+          - kubectl
+        state: present
+
+    - name: Фиксация версий Kubernetes компонентов (apt-mark hold)
+      command: apt-mark hold kubelet kubeadm kubectl
+
+    - name: Включить и запустить kubelet
+      systemd:
+        name: kubelet
+        enabled: yes
+        state: started
+
+    - name: Проверка версии kubelet
+      command: kubelet --version
+      register: kubelet_version
+
+    - name: Проверка версии kubeadm
+      command: kubeadm version -o short
+      register: kubeadm_version
+
+    - name: Проверка версии kubectl
+      command: kubectl version --client
+      register: kubectl_version
+
+    - name: Вывод версий Kubernetes и containerd
+      debug:
+        msg:
+          - "containerd: {{ containerd_version.stdout }}"
+          - "kubelet: {{ kubelet_version.stdout }}"
+          - "kubeadm: {{ kubeadm_version.stdout }}"
+          - "kubectl: {{ kubectl_version.stdout }}"
+
+    # Подготовка к кластеру
+    - name: Проверить, инициализирован ли kubeadm
+      stat:
+        path: /etc/kubernetes/admin.conf
+      register: kubeadm_initialized
+
+    - name: Установить hostname
+      hostname:
+        name: "{{ kube_control_plane_hostname }}"
+
+    - name: Добавить записи в /etc/hosts
+      blockinfile:
+        path: /etc/hosts
+        marker: "# {mark} KUBERNETES HOSTS"
+        block: |
+          127.0.0.1   localhost {{ kube_control_plane_hostname }}
+          {{ kube_control_plane_ip }}   {{ kube_control_plane_hostname }}
+
+    - name: Отключить swap
+      shell: swapoff -a
+
+    - name: Закомментировать swap в fstab
+      replace:
+        path: /etc/fstab
+        regexp: '^(.*swap.*)$'
+        replace: '# \1'
+
+    - name: Загрузить модули ядра
+      shell: modprobe {{ item }}
+      loop:
+        - overlay
+        - br_netfilter
+
+    - name: Настроить sysctl параметры
+      sysctl:
+        name: "{{ item.name }}"
+        value: "{{ item.value }}"
+        state: present
+        reload: yes
+        sysctl_set: yes
+      loop:
+        - { name: net.bridge.bridge-nf-call-iptables, value: '1' }
+        - { name: net.ipv4.ip_forward, value: '1' }
+        - { name: net.bridge.bridge-nf-call-ip6tables, value: '1' }
+
+    # containerd конфиг (если нужно явно)
+    - name: Настроить containerd конфиг для SystemdCgroup
+      copy:
+        dest: /etc/containerd/config.toml
+        content: |
+          version = 2
+          [plugins]
+            [plugins."io.containerd.grpc.v1.cri"]
+              [plugins."io.containerd.grpc.v1.cri".containerd]
+                [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
+                  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+                    runtime_type = "io.containerd.runc.v2"
+                    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+                      SystemdCgroup = true
+              [plugins."io.containerd.grpc.v1.cri".cni]
+                bin_dir = "/opt/cni/bin"
+                conf_dir = "/etc/cni/net.d"
+      notify: restart containerd
+
+    - name: Перезапустить containerd
+      systemd:
+        name: containerd
+        state: restarted
+        enabled: yes
+
+    - name: Инициализация кластера Kubernetes
+      command:
+        argv:
+          - kubeadm
+          - init
+          - --pod-network-cidr={{ pod_network_cidr }}
+          - --cri-socket=unix:///run/containerd/containerd.sock
+          - --upload-certs
+          - --control-plane-endpoint={{ kube_control_plane_hostname }}
+      register: kubeadm_result
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      when: not kubeadm_initialized.stat.exists
+
+    - name: Создать директорию .kube для пользователя ubuntu
+      file:
+        path: /home/ubuntu/.kube
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0700'
+      become: yes
+
+    - name: Копировать admin.conf командой cp (вариант)
+      command: cp /etc/kubernetes/admin.conf /home/ubuntu/.kube/config
+      become: yes
+      
+    - name: Установить права на .kube/config
+      file:
+        path: /home/ubuntu/.kube/config
+        owner: ubuntu
+        group: ubuntu
+        mode: '0600'
+      become: yes
+
+
+    # --- ВАЖНО: Теперь Calico!
+    - name: Apply Calico CNI Plugin
+      command:
+        cmd: kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.27.0/manifests/calico.yaml
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      register: calico_apply_result
+      changed_when: "'configured' in calico_apply_result.stdout or 'created' in calico_apply_result.stdout"
+      failed_when: calico_apply_result.rc != 0 and 'AlreadyExists' not in calico_apply_result.stderr
+
+    - name: Показать команду для присоединения worker узлов
+      debug:
+        msg: "{{ kubeadm_result.stdout }}"
+      when: not kubeadm_initialized.stat.exists
+
+  handlers:
+    - name: restart containerd
+      systemd:
+        name: containerd
+        state: restarted

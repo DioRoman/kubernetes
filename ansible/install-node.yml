@@ -1,0 +1,187 @@
+- name: Установка и настройка Kubernetes worker-node (Ubuntu 24.04, containerd, Calico)
+  hosts: MicroK8S-nodes
+  become: true
+
+  vars:
+    kube_join_command: ""   # Передается через extra-vars или через set_fact после получения с master
+    ansible_user: ubuntu
+
+  tasks:
+    - name: Установка базовых зависимостей
+      apt:
+        name:
+          - ca-certificates
+          - curl
+          - apt-transport-https
+          - gnupg
+          - gpg
+          - software-properties-common
+        state: present
+        update_cache: yes
+
+    - name: Создать каталог для APT keyrings
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    # Docker/containerd репо
+    - name: Добавление GPG ключа Docker
+      ansible.builtin.apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Добавление Docker репозитория
+      ansible.builtin.apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+
+    - name: Установка containerd
+      apt:
+        name: containerd.io
+        state: present
+        update_cache: yes
+
+    - name: Удалить старый config.toml containerd если есть
+      file:
+        path: /etc/containerd/config.toml
+        state: absent
+
+    - name: Сгенерировать правильный config.toml для containerd через tee
+      shell: containerd config default | tee /etc/containerd/config.toml
+      args:
+        creates: /etc/containerd/config.toml
+
+    - name: Включить SystemdCgroup в containerd (toml)
+      replace:
+        path: /etc/containerd/config.toml
+        regexp: 'SystemdCgroup = false'
+        replace: 'SystemdCgroup = true'
+
+    - name: Перезапустить containerd для пересчитывания конфига
+      systemd:
+        name: containerd
+        state: restarted
+        enabled: yes
+
+    # Установка Kubernetes компонентов
+    - name: Загрузка GPG ключа Kubernetes (pkgs.k8s.io)
+      get_url:
+        url: https://pkgs.k8s.io/core:/stable:/v1.34/deb/Release.key
+        dest: /etc/apt/keyrings/kubernetes-apt-keyring.asc
+        mode: '0644'
+
+    - name: Добавление репозитория Kubernetes
+      copy:
+        dest: /etc/apt/sources.list.d/kubernetes.list
+        mode: '0644'
+        content: |
+          deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.asc] https://pkgs.k8s.io/core:/stable:/v1.34/deb/ /
+
+    - name: Обновить индекс пакетов (Kubernetes repo)
+      apt:
+        update_cache: yes
+
+    - name: Установить kubelet, kubeadm, kubectl
+      apt:
+        name:
+          - kubelet
+          - kubeadm
+          - kubectl
+        state: present
+
+    - name: Фиксация версий Kubernetes компонентов (apt-mark hold)
+      command: apt-mark hold kubelet kubeadm kubectl
+
+    - name: Включить и запустить kubelet
+      systemd:
+        name: kubelet
+        enabled: yes
+        state: started
+
+    - name: Отключить swap
+      shell: swapoff -a
+
+    - name: Закомментировать swap в fstab
+      replace:
+        path: /etc/fstab
+        regexp: '^(.*swap.*)$'
+        replace: '# \1'
+
+    - name: Загрузить модули ядра
+      shell: modprobe {{ item }}
+      loop:
+        - overlay
+        - br_netfilter
+
+    - name: Настроить sysctl параметры
+      sysctl:
+        name: "{{ item.name }}"
+        value: "{{ item.value }}"
+        state: present
+        reload: yes
+        sysctl_set: yes
+      loop:
+        - { name: net.bridge.bridge-nf-call-iptables, value: '1' }
+        - { name: net.ipv4.ip_forward, value: '1' }
+        - { name: net.bridge.bridge-nf-call-ip6tables, value: '1' }
+
+    - name: Добавить master в /etc/hosts
+      lineinfile:
+        path: /etc/hosts
+        line: "10.0.2.34 k8s-master"
+        state: present
+
+    # CLEANUP OLD KUBERNETES STATE FOR JOIN
+    - name: Остановить kubelet
+      systemd:
+        name: kubelet
+        state: stopped
+      ignore_errors: true
+
+    - name: Удалить старые kubernetes конфиги (если есть)
+      file:
+        path: /etc/kubernetes
+        state: absent
+
+    - name: Умонтировать все kube-api-access директории
+      shell: |
+        for mnt in $(mount | grep '/var/lib/kubelet/pods/.*/volumes/kubernetes.io~projected/kube-api-access-' | awk '{print $3}'); do
+          umount $mnt || true
+        done
+      args:
+        executable: /bin/bash
+      ignore_errors: true
+
+    - name: Удалить /var/lib/kubelet
+      file:
+        path: /var/lib/kubelet
+        state: absent
+
+    - name: Умонтировать принудительно все /var/lib/kubelet submounts
+      shell: |
+        for m in $(find /var/lib/kubelet -type d -name "kube-api-access-*"); do
+          umount $m || true
+        done
+      args:
+        executable: /bin/bash
+      ignore_errors: true
+
+    # --- JOIN TO CLUSTER ---
+    - name: Присоединить узел к кластеру (kubeadm join)
+      shell: "{{ kube_join_command }} --ignore-preflight-errors=all"
+      args:
+        creates: /etc/kubernetes/kubelet.conf
+      when: kube_join_command != ""
+
+    - name: Проверка присоединения узла (kubectl get nodes)
+      command: kubectl get nodes
+      register: nodes_check
+      failed_when: false
+      changed_when: false
+      when: kube_join_command != ""
+
+    - name: Отладка вывода проверки
+      debug:
+        var: nodes_check.stdout
+      when: kube_join_command != ""
